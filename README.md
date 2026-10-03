@@ -72,12 +72,6 @@ Esegui:
 gh auth login
 ```
 
-e successivamente rilancia:
-
-```bash
-./publish_snapshot.sh
-```
-
 L'account utilizzato deve avere permessi di scrittura sulla repository indicata da `REPO`.
 
 
