@@ -19,7 +19,16 @@ I dump del database non vengono committati nel repository Git.
 
 Ogni snapshot viene invece pubblicato come asset di una GitHub Release.
 
-## Configurazione
+## Utilizzo
+
+### 1. Clona la repository
+
+```bash
+git clone https://github.com/xbit18/icvdb-snapshots.git
+cd icvdb-snapshots
+```
+
+### 2. Crea il file di configurazione
 
 Copia il file di esempio:
 
@@ -27,7 +36,7 @@ Copia il file di esempio:
 cp .env.example .env
 ```
 
-Poi modifica `.env`:
+Apri `.env` e configura la connessione al database PostgreSQL:
 
 ```env
 REPO=xbit18/icvdb-snapshots
@@ -39,33 +48,88 @@ DB_USER=icv
 DB_PASSWORD=change-me
 ```
 
-Il file `.env` non deve essere committato.
+`REPO` indica la repository GitHub sulla quale verranno pubblicati gli snapshot.
 
-## Pubblicazione di uno snapshot
+Le variabili `DB_*` devono puntare al database ICVDB da esportare.
 
-Rendi eseguibile lo script, se necessario:
+Il file `.env` è escluso da Git e non deve essere committato.
+
+### 3. Rendi eseguibile lo script
+
+Solo al primo utilizzo:
 
 ```bash
 chmod +x publish_snapshot.sh
 ```
 
-Poi esegui:
+### 4. Autenticazione GitHub
+
+Prima di eseguire lo script, assicurati di essere autenticato a Github tramite Github CLI
+
+Esegui:
+
+```bash
+gh auth login
+```
+
+e successivamente rilancia:
 
 ```bash
 ./publish_snapshot.sh
 ```
 
-Lo script:
+L'account utilizzato deve avere permessi di scrittura sulla repository indicata da `REPO`.
 
-1. controlla le dipendenze necessarie;
-2. verifica l'autenticazione GitHub;
-3. verifica la connessione PostgreSQL;
-4. crea un dump con `pg_dump -Fc`;
-5. verifica il dump con `pg_restore --list`;
-6. calcola lo SHA256;
-7. crea una GitHub Release;
-8. carica dump e checksum come asset;
-9. verifica che la nuova release sia disponibile correttamente.
+
+### 5. Avvia la pubblicazione
+
+```bash
+./publish_snapshot.sh
+```
+
+Lo script esegue automaticamente:
+
+```text
+controllo dipendenze
+        ↓
+controllo autenticazione GitHub
+        ↓
+controllo connessione PostgreSQL
+        ↓
+controllo compatibilità pg_dump
+        ↓
+creazione dump PostgreSQL
+        ↓
+verifica dump
+        ↓
+calcolo SHA256
+        ↓
+creazione GitHub Release
+        ↓
+upload dump + checksum
+```
+
+Se alcune dipendenze non sono installate e il sistema utilizza Debian/Ubuntu, lo script può proporne automaticamente l'installazione.
+
+### 6. Risultato
+
+Per uno snapshot creato il `2026-10-03` verrà pubblicata automaticamente una release:
+
+```text
+Tag:    db-2026-10-03
+Titolo: ICVDB snapshot – 2026-10-03
+```
+
+contenente:
+
+```text
+icvdb-2026-10-03.dump
+icvdb-2026-10-03.dump.sha256
+```
+
+Il dump viene generato nel formato PostgreSQL custom (`pg_dump -Fc`) e può essere ripristinato tramite `pg_restore`.
+
+Lo script non modifica il database sorgente e i file temporanei generati durante la procedura vengono eliminati automaticamente al termine.
 
 ## Formato delle release
 
@@ -103,7 +167,7 @@ La release più recente è recuperabile tramite GitHub API:
 https://api.github.com/repos/xbit18/icvdb-snapshots/releases/latest
 ```
 
-Questo endpoint è pensato per essere utilizzato da client automatici, ad esempio dall'updater di `icvdb-torznab`.
+Questo endpoint può essere utilizzato da client automatici, ad esempio dall'updater di `icvdb-torznab`.
 
 La risposta contiene informazioni come:
 
@@ -113,10 +177,26 @@ La risposta contiene informazioni come:
   "assets": [
     {
       "name": "icvdb-2026-10-03.dump",
+      "size": 340000000,
+      "digest": "sha256:...",
       "browser_download_url": "https://github.com/..."
     }
   ]
 }
+```
+
+Il client può quindi:
+
+```text
+leggere tag_name
+        ↓
+confrontarlo con la versione locale
+        ↓
+scaricare il nuovo dump se necessario
+        ↓
+verificare il checksum
+        ↓
+ripristinare il database
 ```
 
 ## Ripristino di uno snapshot
@@ -132,15 +212,28 @@ pg_restore \
   icvdb-YYYY-MM-DD.dump
 ```
 
+Se il database si trova su un host o una porta specifici:
+
+```bash
+pg_restore \
+  -h HOST \
+  -p PORT \
+  -U USER \
+  -d DATABASE \
+  --no-owner \
+  --no-privileges \
+  icvdb-YYYY-MM-DD.dump
+```
+
 ## Dipendenze
 
 Lo script utilizza:
 
 ```text
 bash
+psql
 pg_dump
 pg_restore
-psql
 gh
 sha256sum
 ```
@@ -153,7 +246,9 @@ gh
 coreutils
 ```
 
-Lo script verifica automaticamente la presenza degli strumenti richiesti e può proporre l'installazione dei pacchetti mancanti sui sistemi Debian/Ubuntu.
+Lo script verifica automaticamente la presenza degli strumenti richiesti.
+
+Se alcune dipendenze risultano mancanti e il sistema utilizza Debian/Ubuntu, può proporne automaticamente l'installazione tramite `apt`.
 
 ## Compatibilità della versione PostgreSQL
 
@@ -165,6 +260,11 @@ Esempi:
 Server PostgreSQL 14 + pg_dump 16 → OK
 Server PostgreSQL 16 + pg_dump 16 → OK
 Server PostgreSQL 16 + pg_dump 14 → NON supportato
+```
+
+Lo script controlla automaticamente la versione del server e quella di `pg_dump` prima di creare il dump.
+
+In caso di incompatibilità interrompe l'esecuzione mostrando un messaggio esplicativo.
 
 ## Sicurezza
 
@@ -174,11 +274,15 @@ Le credenziali PostgreSQL devono essere configurate tramite `.env`.
 
 Il file `.env` è escluso da Git tramite `.gitignore`.
 
+Anche dump, backup e checksum locali devono rimanere fuori dalla Git history.
+
 ## Note
 
 Gli snapshot vengono distribuiti tramite GitHub Releases per evitare di inserire file binari di grandi dimensioni nella Git history.
 
-La repository contiene solo gli strumenti necessari alla creazione e pubblicazione degli snapshot.
+La repository contiene soltanto gli strumenti necessari alla creazione e pubblicazione degli snapshot.
+
+La release GitHub più recente rappresenta lo snapshot da utilizzare come riferimento per i client automatici.
 
 ## Licenza
 
