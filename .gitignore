@@ -1,0 +1,6 @@
+*.dump
+*.backup
+*.sql
+*.sql.gz
+*.sha256
+.env
