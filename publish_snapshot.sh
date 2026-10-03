@@ -288,6 +288,7 @@ gh release create "$TAG" \
     "$DUMP_PATH" \
     "$CHECKSUM_PATH" \
     --repo "$REPO" \
+    --latest \
     --title "ICVDB snapshot – ${DATE}" \
     --notes "$(cat <<EOF
 Snapshot PostgreSQL del database ICVDB.
