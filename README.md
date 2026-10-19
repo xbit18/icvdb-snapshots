@@ -4,6 +4,9 @@ Repository dedicata alla pubblicazione degli snapshot PostgreSQL di ICVDB.
 
 Gli snapshot vengono pubblicati come GitHub Releases e sono pensati per essere consumati da progetti self-hosted come `icvdb-torznab`.
 
+## Disclaimer
+Progetto in collaborazione con Il Corsaro Viola e l'utente [qwertyuiop8899](https://github.com/qwertyuiop8899) creatore di ICV
+
 ## Struttura
 
 La repository contiene principalmente:
